@@ -1,24 +1,16 @@
 import logo from './logo.svg';
 import {Button} from 'react-bootstrap';
-import {Table, Input, Form, Card, DatePicker, Row, Col} from 'antd';
+import {Table, Input, Form, Card,Modal, DatePicker, Row, Col} from 'antd';
 import React, {useState, useEffect} from 'react';
+import { EditOutlined, DeleteOutlined } from "@ant-design/icons";
 import './App.css';
 
 const gridStyle = {
     width: '25%', textAlign: 'center',
 };
 
-const columns = [{
-    title: 'Subject', dataIndex: 'subject',
-}, {
-    title: 'Content', dataIndex: 'content',
-}];
-const data = [];
-for (let i = 0; i < 46; i++) {
-    data.push({
-        key: i, name: `Edward King ${i}`, age: 32, address: `London, Park Lane no. ${i}`,
-    });
-}
+
+
 const getColumns = () => {
 
     return [{
@@ -39,41 +31,44 @@ const getRowData = (dataPost) => {
     return data;
 
 }
-function refreshPage() {
-    window.location.reload(false);
-}
+
 
 function App() {
+    const [isEditing, setIsEditing] = useState(false);
     const [selectedRowKeys, setSelectedRowKeys] = useState([]);
     const [loading, setLoading] = useState(false);
     const [dataPost, setDataPost] = useState([]);
     const [content, setContent] = useState("");
     const [subject, setSubject] = useState("");
+    const [editingPost, setEditingPost] = useState(null);
     const onFinish = async (values) => {
         console.log('Success:', values);
         try {
             await sendPost(values);
-            alert('Your registration was successfully submitted!');
-            setSubject("");
-            setContent("");
+
+                setSubject("");
+                setContent("");
+
+
+
         } catch (e) {
-            alert(`Registration failed! ${e.message}`);
+
         }
 
     };
     const onFinishFailed = (errorInfo) => {
         console.log('Failed:', errorInfo);
     };
-
-    useEffect(() => {
-
-        fetch('http://localhost:3000/api/getAll').then((response) =>
+    const getDataPost=()=>{
+        fetch('http://localhost:3500/api/getAll').then((response) =>
             response.json()
         ).then(data =>
             setDataPost(data)
         )
 
-
+    }
+    useEffect(() => {
+        getDataPost();
 // empty dependency array means this effect will only run once (like componentDidMount in classes)
     }, []);
 
@@ -89,23 +84,93 @@ function App() {
             },
             body: JSON.stringify({ subject:subject,content:content })
         };
-        fetch('http://localhost:3000/api/post', requestOptions)
+        fetch('http://localhost:3500/api/post', requestOptions)
+            .then(response => {
+
+                getDataPost()
+                return response.json()
+            })
+
+
+    }
+
+    const updateSelectedPost=(post)=>{
+        const requestOptions = {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(post)
+        };
+        fetch(`http://localhost:3500/api/update/${post._id}`, requestOptions)
             .then(response => response.json())
-            .then(data => alert(data))
 
-    }
 
-    const onSubmit = async (event) => {
-        event.preventDefault(); // Prevent default submission
-        try {
-            await sendPost();
-            alert('Your registration was successfully submitted!');
-            setSubject("");
-            setContent("");
-        } catch (e) {
-            alert(`Registration failed! ${e.message}`);
-        }
-    }
+
+    };
+
+    const deleteSelectedPost=(post)=>{
+        console.log(post)
+        fetch(`http://localhost:3500/api/delete/${post._id}`, {
+            method: 'DELETE'}
+        ) .then(response => console.log(response.json()) )
+
+    };
+    const onDeletePost = (record) => {
+
+        Modal.confirm({
+            title: "Are you sure, you want to delete this post ?",
+            okText: "Yes",
+            okType: "danger",
+            onOk: () => {
+
+                setDataPost((pre) => {
+                    // eslint-disable-next-line no-self-compare
+                    deleteSelectedPost(record)
+                    return pre.filter((post) => post._id !== record._id);
+                });
+            },
+        });
+    };
+    const resetEditing = () => {
+        setIsEditing(false);
+        setEditingPost(null);
+    };
+
+    const onEditPost = (record) => {
+        setIsEditing(true);
+        setEditingPost({ ...record });
+    };
+    const columns = [
+        {
+            key: '1',
+
+            title: 'Subject', dataIndex: 'subject',
+        }, {
+            key: "2",
+            title: 'Content', dataIndex: 'content',
+        },
+        {
+            key: '3',
+            title: "Actions",
+            render: (record) => {
+                return (
+                    <>
+                        <EditOutlined
+                            onClick={() => {
+                                onEditPost(record);
+                            }}
+                        />
+                        <DeleteOutlined
+                            onClick={() => {
+                                onDeletePost(record);
+                            }}
+                            style={{ color: "red", marginLeft: 12 }}
+                        />
+                    </>
+                );
+            },
+        }];
     const start = () => {
         setLoading(true);
         // ajax request after empty completing
@@ -134,7 +199,7 @@ function App() {
                             <Card
 
                                 type="inner" title="Add new Post">
-                                <Form onSubmit={onSubmit}
+                                <Form
                                     name="basic"
                                     labelCol={{
                                         span: 8,
@@ -184,7 +249,7 @@ function App() {
                                             offset: 8, span: 16,
                                         }}
                                     >
-                                        <Button type="primary" htmlType="submit"  >
+                                        <Button type="primary"   >
                                             Submit
                                         </Button>
                                     </Form.Item>
@@ -203,25 +268,72 @@ function App() {
 
                             >
                                 <div>
-                                    <div
-                                        style={{
-                                            marginBottom: 16,
+
+
+                                    <Table columns={columns}
+                                           dataSource={dataPost}/>
+                                    <Modal
+                                        title="Edit Post"
+                                        open={isEditing}
+                                        okText="Save"
+                                        onCancel={() => {
+                                            resetEditing();
+                                        }}
+                                        onOk={() => {
+
+                                            setDataPost((pre) => {
+                                                return pre.map((post) => {
+                                                    if (post._id === editingPost._id) {
+                                                        updateSelectedPost(editingPost);
+                                                        return editingPost;
+                                                    } else {
+                                                        return post;
+                                                    }
+                                                });
+                                            });
+                                            resetEditing();
                                         }}
                                     >
-                                        <Button type="primary" onClick={start} disabled={!hasSelected}
-                                                loading={loading}>
-                                            Reload
-                                        </Button>
-                                        <span
+
+                                        <div
                                             style={{
-                                                marginLeft: 8,
+                                                marginTop: 25,
+                                            }}
+
+                                        >
+                                            <Input
+                                                value={editingPost?.subject}
+                                                onChange={(e) => {
+                                                    setEditingPost((pre) => {
+                                                        return { ...pre, subject: e.target.value };
+                                                    });
+                                                }}
+                                            />
+
+
+                                        </div>
+                                        <div
+                                            style={{
+                                                marginTop: 15,
                                             }}
                                         >
-          {hasSelected ? `Selected ${selectedRowKeys.length} items` : ''}
-        </span>
-                                    </div>
-                                    <Table rowSelection={rowSelection} columns={getColumns()}
-                                           dataSource={dataPost}/>
+                                            <Input.TextArea  value={editingPost?.content}
+                                                             onChange={(e) => {
+                                                                 setEditingPost((pre) => {
+                                                                     return { ...pre, content: e.target.value };
+                                                                 });
+                                                             }}
+                                                            autoSize={{
+                                                                minRows: 3,
+                                                                maxRows: 5,
+                                                            }}/>
+
+
+                                        </div>
+
+
+
+                                    </Modal>
                                 </div>
                             </Card>
                         </Col>
