@@ -34,6 +34,9 @@ const getRowData = (dataPost) => {
 
 
 function App() {
+    const [form] = Form.useForm();
+
+
     const [isEditing, setIsEditing] = useState(false);
     const [selectedRowKeys, setSelectedRowKeys] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -44,10 +47,16 @@ function App() {
     const onFinish = async (values) => {
         console.log('Success:', values);
         try {
-            await sendPost(values);
+            setSubject("");
+            setContent("");
+            form.resetFields();
 
-                setSubject("");
-                setContent("");
+            await sendPost(values).then(data => {
+                console.log(data)
+
+            });
+
+
 
 
 
@@ -220,11 +229,12 @@ function App() {
                                     <Form.Item
                                         label="Subject"
                                         name="subject"
+
                                         rules={[{
                                             required: true, message: 'Please input your subject!',
                                         },]}
                                     >
-                                        <Input onChange={(e) => setSubject(e.target.value)}
+                                        <Input  onChange={(e) => setSubject(e.target.value)}
                                                placeholder="tapez sujet" />
                                     </Form.Item>
 
